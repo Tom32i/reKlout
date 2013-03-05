@@ -16,7 +16,13 @@ client.on("error", function (err) {
 	console.log("Error " + err);
 });
 
-global.twitter = new Twitter('iPtj8HxKQ10kLzohqEM8Xg', '8eFKkw78W8KEjsNlxcalu5tvHPDdgsQfrC79EVgKk', '40023277-rRpv7QzUQ7wfFrPmYxuCDRuTNNAPUYBd4m6ogFZK4', 'srjptlwRGT95pHLFUiiKkukNTJT8Kycs9IG6vs8JGKI');
+global.twitter = new Twitter(
+	'iPtj8HxKQ10kLzohqEM8Xg', 
+	'8eFKkw78W8KEjsNlxcalu5tvHPDdgsQfrC79EVgKk', 
+	'oob',
+	'40023277-rRpv7QzUQ7wfFrPmYxuCDRuTNNAPUYBd4m6ogFZK4', 
+	'srjptlwRGT95pHLFUiiKkukNTJT8Kycs9IG6vs8JGKI'
+);
 
 var main_controller = new Controller();
 global.CryptoJS = CryptoJS;

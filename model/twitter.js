@@ -3,62 +3,65 @@ var querystring = require('querystring'),
 	fs = require('fs'),
     TwitterApiCall = require('./TwitterApiCall');
 
-function Twitter (consumer_key, consumer_secret, token, token_secret)
+function Twitter (consumer_key, consumer_secret, callback_url, token, token_secret)
 {
-	this.consumer_key = consumer_key;
-	this.consumer_secret = consumer_secret;
-	this.token = token;
-	this.token_secret = token_secret;
+    this.consumer_key = consumer_key;
+    this.consumer_secret = consumer_secret;
+    this.token = token;
+    this.token_secret = token_secret;
+	this.callback_url = callback_url;
+    this.api_url = 'api.twitter.com';
+    this.api_version = '1.1';
+    this.oauth_version = '1.0';
 
-	this.callback_url = 'http://reklout.loc/callback';
-	this.api_url = 'api.twitter.com';
-	this.api_version = '1.1';
+    TwitterApiCall.prototype.consumer_key = this.consumer_key;
+    TwitterApiCall.prototype.consumer_secret = this.consumer_secret;
+    TwitterApiCall.prototype.callback_url = this.callback_url;
+    TwitterApiCall.prototype.api_url = this.api_url;
+    TwitterApiCall.prototype.api_version = this.api_version;
+    TwitterApiCall.prototype.oauth_version = this.oauth_version;
 
 	this.getFromTwitter = function ()
 	{
-        var signature = this.signature('users/lookup', {screen_name: 'Tom32i'}, this.token_secret);
-        console.log(signature);
-        return;
-		//return this.call('users/lookup', {screen_name: 'Tom32i'});
+        return this.call('users/lookup', {screen_name: 'Tom32i'});
 	}
 
 	this.call = function (fn, api_params)
     {
-        //var multipart  = this.detectMultipart(fn),
-        var post_data = this.toUrl(api_params),
-            now = new Date(),
-            httpmethod = this.detectMethod(fn, api_params),
-            path = this.getPath(fn),
-            params = {
-                oauth_consumer_key: this.consumer_key,
-                oauth_nonce: this.nonce(),
-                : 'HMAC-SHA1',
-                oauth_timestamp: now.oauth_signature_methodgetTime(),
-                oauth_token: this.token,
-                oauth_version: '1.0'
-            };
+        //var api_call = new TwitterApiCall('users/lookup', {screen_name: 'Tom32i'}, this.token_secret);
+        var api_call = new TwitterApiCall('oauth/request_token', {oauth_callback: this.callback_url}, this.token);
 
-        var base_string_params = params;
-
-        for(var key in api_params)
-        {
-            base_string_params[key] = api_params[key];
-        }
-
-        var signature_base_string = httpmethod + '&' + encodeURIComponent('https://' + this.api_url + path) + '&' + encodeURIComponent(this.toUrl(base_string_params));   
-
-        params.signature = this.sha1(signature_base_string);
-
-        console.log(signature_base_string);
-
-        var options = {
-            hostname: this.api_url,
-            path: path + '?' + this.toUrl(api_params),
-            method: httpmethod,
-            headers: {
-                'Authorization': "OAuth " + this.toHeader(params)
-            }
+        var api_header = {
+            oauth_callback: this.callback_url,
+            oauth_consumer_key: this.consumer_key,
+            oauth_nonce: api_call.oauth_params.oauth_nonce,
+            oauth_signature: api_call.signature,
+            oauth_signature_method: "HMAC-SHA1",
+            oauth_timestamp: api_call.oauth_params.oauth_timestamp,
+            oauth_token: this.token,
+            oauth_version: this.oauth_version
         };
+
+        api_header = this.sort(api_header);
+
+        var header_string = 'OAuth ' + api_call.toHeader(api_header);
+
+        var authorize = this.post(
+            {
+                hostname:   this.api_url,
+                path:       '/oauth/request_token',
+                headers: {
+                    'Accept': '* /*',
+                    'Authorization': header_string,
+                    'Connection': 'Close',
+                    'User-Agent': 'OAuth gem v0.4.4',
+                    'Host': this.api_url
+                }
+            },
+            {
+                //oauth_callback: this.callback_url
+            }
+        );
 
         /*
             POST: 
@@ -69,7 +72,7 @@ function Twitter (consumer_key, consumer_secret, token, token_secret)
 
          */
 
-		var req = https.request(options, function(res) {
+		/*var req = https.request(options, function(res) {
 			console.log("statusCode: ", res.statusCode);
 			console.log("headers: ", res.headers);
 
@@ -79,53 +82,58 @@ function Twitter (consumer_key, consumer_secret, token, token_secret)
 		});
 		req.end();
 
-        console.log(req);
-
 		req.on('error', function(e) {
             console.log(req);
 			console.log('problem with request: ' + e.message);
-		});
+		});*/
     }
 
-    this.signature = function (fn, api_params, token_secret)
+    this.post = function(options, data)
     {
-        var httpmethod = this.detectMethod(fn, api_params),
-            url = this.getUrl(fn),
-            now = new Date(),
-            params = {
-                oauth_consumer_key: this.consumer_key,
-                oauth_nonce: this.nonce(),
-                oauth_signature_method: 'HMAC-SHA1',
-                oauth_timestamp: now.getTime(),
-                oauth_token: this.token,
-                oauth_version: '1.0'
-            },
-            parameter_string = '',
-            signature_base_string = '',
-            parameters = [];
-
-        for(var key in params)
+        if(data)
         {
-            parameters[encodeURIComponent(key)] = encodeURIComponent(params[key]);
+            var post_data = this.toUrl(data);
+            options.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+            options.headers['Content-Length'] = post_data.length;
         }
 
-        for(var key in api_params)
+        options.method = 'POST';
+
+        options.headers = this.sort(options.headers);
+        options = this.sort(options);
+
+        console.log('The options:');
+        console.log(options);
+        console.log(' ');
+
+        var req = https.request(options, function(res) {
+            console.log("statusCode: ", res.statusCode);
+            console.log("headers: ", res.headers);
+
+            res.on('data', function(d) {
+                process.stdout.write(d);
+            });
+        });
+
+        if(data)
         {
-            parameters[encodeURIComponent(key)] = encodeURIComponent(api_params[key]);
+            req.write(post_data);
         }
 
-        parameters = this.sort(parameters);
+        req.end();
 
-        for(var key in parameters)
-        {
-            if(parameter_string != ""){ parameter_string = parameter_string + '&'; }
-            parameter_string = parameter_string + encodeURIComponent(key) + '=' + encodeURIComponent(parameters[key]);
-        }
+        console.log('The headers:');
+        console.log(req);
+        console.log(' ');
 
-        var signature_base_string = httpmethod + '&' + encodeURIComponent(url) + '&' + encodeURIComponent(parameter_string);
-        var signing_key = encodeURIComponent(this.consumer_secret) + '&' + ( typeof(token_secret) != "undefined" ? encodeURIComponent(token_secret) : '');
+        req.on('error', function(e) {
+            console.log('problem with request: ' + e.message);
+        });
+    }
 
-        return CryptoJS.enc.Base64.stringify(CryptoJS.SHA1(signing_key));
+    this.get = function()
+    {
+
     }
 
     this.toUrl = function (data)
@@ -139,140 +147,6 @@ function Twitter (consumer_key, consumer_secret, token, token_secret)
         }
 
         return str;
-    }
-
-    this.toHeader = function (data)
-    {
-        var str = "";
-
-        for(var key in data)
-        {
-            if(str != ""){ str = str + ", "; }
-            str = str + encodeURIComponent(key) + '="' + data[key] + '"';
-        }
-
-        return str;
-    }
-
-    this.sha1 = function(data)
-    {
-        var secret = this.consumer_secret + '&' + this.token_secret;
-        var hash = CryptoJS.HmacSHA1(data, secret);
-        var str = hash.toString(CryptoJS.enc.Base64);
-
-    	return str;
-    }
-
-    this.getUrl = function(fn)
-    {
-        return 'https://' + this.api_url + this.getPath(fn);
-    }
-
-    this.getPath = function(fn)
-    {
-    	if (fn.match(/^oauth/i)) {
-            return '/' + fn;
-        } else {
-        	return '/' + this.api_version + '/'  + fn + '.json';
-        }
-    }
-
-    this.detectMultipart = function (fn)
-    {
-    	switch(fn) 
-    	{
-            case 'statuses/update_with_media':
-            case 'account/update_profile_background_image':
-            case 'account/update_profile_image':
-            case 'account/update_profile_banner':
-                return true;
-
-            default: 
-            	return false;
-        }
-    }
-
-    this.detectMethod = function (fn, params)
-    {
-    	switch(fn) 
-    	{
-            case 'account/settings':
-                return params.length > 0 ? 'POST' : 'GET';
-
-            case 'statuses/destroy/:id':
-            case 'statuses/update':
-            case 'statuses/retweet/:id':
-            case 'statuses/update_with_media':
-
-            // Direct Messages
-            case 'direct_messages/destroy':
-            case 'direct_messages/new':
-
-            // Friends & Followers
-            case 'friendships/create':
-            case 'friendships/destroy':
-            case 'friendships/update':
-
-            // Users
-            case 'account/settings__post':
-            case 'account/update_delivery_device':
-            case 'account/update_profile':
-            case 'account/update_profile_background_image':
-            case 'account/update_profile_colors':
-            case 'account/update_profile_image':
-            case 'blocks/create':
-            case 'blocks/destroy':
-            case 'account/update_profile_banner':
-            case 'account/remove_profile_banner':
-
-            // Favorites
-            case 'favorites/destroy':
-            case 'favorites/create':
-
-            // Lists
-            case 'lists/members/destroy':
-            case 'lists/subscribers/create':
-            case 'lists/subscribers/destroy':
-            case 'lists/members/create_all':
-            case 'lists/members/create':
-            case 'lists/destroy':
-            case 'lists/update':
-            case 'lists/create':
-            case 'lists/members/destroy_all':
-
-            // Saved Searches
-            case 'saved_searches/create':
-            case 'saved_searches/destroy/:id':
-
-            // Places & Geo
-            case 'geo/place':
-
-            // Spam Reporting
-            case 'users/report_spam':
-
-            // OAuth
-            case 'oauth/access_token':
-            case 'oauth/request_token':
-            	return 'POST';
-
-            default:
-            	return 'GET';
-        }
-    }
-
-    this.nonce = function ()
-    {
-    	var chars = "azertyuiopqsdfghjklmwxcvbnéèçàAZERTYUIOPQSDFGHJKLMWXCVBNÉÈÀÇ",
-    		length = 32,
-    		phrase = "";
-
-    	for (var i = length - 1; i >= 0; i--)
-    	{	
-	    	var pos = Math.floor(Math.random() * (chars.length - 1));
-	    	phrase = phrase + chars[pos];
-    	}
-
-    	return CryptoJS.SHA1(phrase).toString(CryptoJS.enc.Base64);
     }
 
     this.sort = function (obj)
