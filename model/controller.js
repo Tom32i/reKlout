@@ -19,7 +19,7 @@ function Controller ()
 					res.render('result', {title: user.name, user: user});
 				}
 				else
-				{		        	
+				{		        
 					res.redirect(config.base_url + '/login');
 				}
 			});
@@ -32,15 +32,7 @@ function Controller ()
 
 	this.login = function(req, res)
 	{
-		var oa = new OAuth(
-			"https://api.twitter.com/oauth/request_token",
-			"https://api.twitter.com/oauth/access_token",
-			config.twitter.consumer_key,
-			config.twitter.consumer_secret,
-			config.twitter.oauth_version,
-			config.twitter.callback_url,
-			"HMAC-SHA1"
-		);
+		var oa = this.getOAuth();
 
 		oa.getOAuthRequestToken(function(error, oauth_token, oauth_token_secret, results){
 			if(error) {
@@ -61,15 +53,7 @@ function Controller ()
 
 	this.callback = function(req, res)
 	{
-		var oa = new OAuth(
-			req.session.oa._requestUrl,
-			req.session.oa._accessUrl,
-			req.session.oa._consumerKey,
-			req.session.oa._consumerSecret,
-			req.session.oa._version,
-			req.session.oa._authorize_callback,
-			req.session.oa._signatureMethod
-		);
+		var oa = this.getOAuth();
 
 		//req.session.oauth_token = req.query.oauth_token;
 		//req.session.oauth_verifier = req.query.oauth_verifier;
@@ -78,22 +62,59 @@ function Controller ()
 			req.session.oauth_token, 
 			req.session.oauth_token_secret, 
 			req.query.oauth_verifier, 
-			function(error, oauth_access_token, oauth_access_token_secret, results2) {
-
+			function(error, oauth_access_token, oauth_access_token_secret, results2) 
+			{
 				if(error) {
 					console.log('error');
 					console.log(error);
 		 		}
 		 		else {
-
 					// store the access token in the session
 					req.session.oauth_access_token = oauth_access_token;
 					req.session.oauth_access_token_secret = oauth_access_token_secret;
 		 		}
+			}
+		);
+
+		oa.getProtectedResource(
+			"https://api.twitter.com/1.1/account/verify_credentials.json", 
+			"GET", 
+			req.session.oauth_access_token, 
+			req.session.oauth_access_token_secret,
+			function (error, data, response) {
+
+				var feed = JSON.parse(data);
+
+				res.render('user', {
+					user: 'data'
+				});
 
 		});
+	}
 
-		res.render('home', {title: 'home'});
+	this.getOAuth = function ()
+	{
+		if (typeof(req.session.oa) != "undefined") {
+			return new OAuth(
+				"https://api.twitter.com/oauth/request_token",
+				"https://api.twitter.com/oauth/access_token",
+				config.twitter.consumer_key,
+				config.twitter.consumer_secret,
+				config.twitter.oauth_version,
+				config.twitter.callback_url,
+				"HMAC-SHA1"
+			);
+		} else {
+			var oa = new OAuth(
+				req.session.oa._requestUrl,
+				req.session.oa._accessUrl,
+				req.session.oa._consumerKey,
+				req.session.oa._consumerSecret,
+				req.session.oa._version,
+				req.session.oa._authorize_callback,
+				req.session.oa._signatureMethod
+			);
+		}
 	}
 }
 
