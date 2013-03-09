@@ -6,7 +6,8 @@ var sys = require ('sys'),
 	stylus = require('stylus'), 
 	nib = require('nib'), 
 	redis = require("redis"),
-	Controller = require('./model/controller'),
+	Controller = require('./model/controller')
+;
 
 global.config = require('./config.js');
 global.client = redis.createClient();
@@ -15,8 +16,6 @@ client.on("error", function (err) {
 });
 
 var main_controller = new Controller();
-global.CryptoJS = CryptoJS;
-
 var app = express()
 function compile(str, path) {
   return stylus(str)
