@@ -54,14 +54,44 @@ function Controller ()
 				req.session.oauth_token_secret = oauth_token_secret;
 
 				// redirect the user to authorize the token
-				res.redirect("https://api.twitter.com/oauth/authorize?oauth_token=" + oauth_token);
+				res.redirect("https://api.twitter.com/oauth/authenticate?oauth_token=" + oauth_token);
 			}
-		})
+		});
 	}
 
 	this.callback = function(req, res)
 	{
-		console.log(req.query);
+		var oa = new OAuth(
+			req.session.oa._requestUrl,
+			req.session.oa._accessUrl,
+			req.session.oa._consumerKey,
+			req.session.oa._consumerSecret,
+			req.session.oa._version,
+			req.session.oa._authorize_callback,
+			req.session.oa._signatureMethod
+		);
+
+		//req.session.oauth_token = req.query.oauth_token;
+		//req.session.oauth_verifier = req.query.oauth_verifier;
+
+		oa.getOAuthAccessToken(
+			req.session.oauth_token, 
+			req.session.oauth_token_secret, 
+			req.query.oauth_verifier, 
+			function(error, oauth_access_token, oauth_access_token_secret, results2) {
+
+				if(error) {
+					console.log('error');
+					console.log(error);
+		 		}
+		 		else {
+
+					// store the access token in the session
+					req.session.oauth_access_token = oauth_access_token;
+					req.session.oauth_access_token_secret = oauth_access_token_secret;
+		 		}
+
+		});
 
 		res.render('home', {title: 'home'});
 	}
