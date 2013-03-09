@@ -6,9 +6,7 @@ var sys = require ('sys'),
 	stylus = require('stylus'), 
 	nib = require('nib'), 
 	redis = require("redis"),
-	Twitter = require('./model/twitter'),
 	Controller = require('./model/controller'),
-	CryptoJS = require('./node_modules/cryptojs/cryptojs');
 
 global.config = require('./config.js');
 global.client = redis.createClient();
