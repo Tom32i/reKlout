@@ -1,6 +1,5 @@
-var querystring = require('querystring'),
-	https = require('https'),
-	fs = require('fs');
+var util = require('util'),
+    OAuth = require('oauth').OAuth;
 
 function TwitterApiCall (fn, api_params, token, token_secret)
 {	
@@ -9,41 +8,6 @@ function TwitterApiCall (fn, api_params, token, token_secret)
     this.api_params = api_params;
     this.token = typeof(token) != "undefined" ? token : false;
     this.token_secret = typeof(token_secret) != "undefined" ? token_secret : false;
-
-    this.toUrl = function (data)
-    {
-        var str = "";
-
-        for(var key in data)
-        {
-            if(str != ""){ str = str + "&"; }
-            str = str + key + '=' + data[key];
-        }
-
-        return str;
-    }
-
-    this.toHeader = function (data)
-    {
-        var str = "";
-
-        for(var key in data)
-        {
-            if(str != ""){ str = str + ", "; }
-            str = str + encodeURIComponent(key) + '="' + encodeURIComponent(data[key]) + '"';
-        }
-
-        return str;
-    }
-
-    this.sha1 = function(data)
-    {
-        var secret = this.consumer_secret + '&' + ( this.token_secret ? this.token_secret : '');
-        var hash = CryptoJS.HmacSHA1(data, secret);
-        var str = hash.toString(CryptoJS.enc.Base64);
-
-    	return str;
-    }
 
     this.getUrl = function(fn)
     {
@@ -67,7 +31,7 @@ function TwitterApiCall (fn, api_params, token, token_secret)
         {
             if(!fn.match(/^oauth/i))
             {
-                str = str + ((str == "") ? '?' : '&') + encodeURIComponent(key) + encodeURIComponent(params[key]) ;
+                str = str + ((str == "") ? '?' : '&') + this.encodeData(key) + this.encodeData(params[key]) ;
             }
         }
 
@@ -203,78 +167,33 @@ function TwitterApiCall (fn, api_params, token, token_secret)
     this.httpmethod = this.detectMethod(this.fn, this.api_params);
     this.url = this.getUrl(this.fn);
 
-    // Collecting parameters:
-    this.oauth_params = {
-        oauth_consumer_key: this.consumer_key,
-        oauth_nonce: this.nonce(),
-        oauth_signature_method: 'HMAC-SHA1',
-        oauth_timestamp: this.now.getTime(),
-        oauth_version: this.oauth_version
-    };
+    var oa = new OAuth(
+        "https://api.twitter.com/oauth/request_token",
+        "https://api.twitter.com/oauth/access_token",
+        this.consumer_key,
+        this.consumer_secret,
+        this.oauth_version,
+        this.callback_url,
+        "HMAC-SHA1"
+    );
 
-    if(this.token)
-    {
-        this.oauth_params.oauth_token = this.token;
-    }
+    oa.getOAuthRequestToken(function(error, oauth_token, oauth_token_secret, results){
+      if(error) {
+            console.log('error');
+            console.log(error);
+        }
+      else { 
+            // store the tokens in the session
+            req.session.oa = oa;
+            req.session.oauth_token = oauth_token;
+            req.session.oauth_token_secret = oauth_token_secret;
 
-    this.oauth_params = this.sort(this.oauth_params);
+            // redirect the user to authorize the token
+        res.redirect("https://www.google.com/accounts/OAuthAuthorizeToken?oauth_token="+oauth_token);
+      }
+    })
 
-    // Generating Parameter String:
-    var parameters = [];
-
-    for(var key in this.oauth_params)
-    {
-        parameters[encodeURIComponent(key)] = encodeURIComponent(this.oauth_params[key]);
-    }
-
-    for(var key in this.api_params)
-    {
-        parameters[encodeURIComponent(key)] = encodeURIComponent(this.api_params[key]);
-    }
-
-    parameters = this.sort(parameters);
-    parameter_string = this.toUrl(parameters);
-    //console.log('Parameter String:');
-    //console.log(parameter_string);
-    //console.log(' ');
-
-    /* 
-        Make sure to percent encode the parameter string! 
-        The signature base string should contain exactly 2 ampersand '&' characters. 
-        The percent '%' characters in the parameter string should be encoded as %25 in the signature base string. 
-    */
-    //console.log('Encoded Parameter String:');
-    //console.log(encodeURIComponent(parameter_string));
-    //console.log(' ');
-
-    // Creating the signature base string:
-    this.signature_base_string = this.httpmethod + '&' + encodeURIComponent(this.url) + '&' + encodeURIComponent(parameter_string);
-
-    //console.log('signature_base_string:');
-    //console.log(this.signature_base_string);
-    //console.log(' ');
-
-    // Creating the signing key :
-    this.signing_key = encodeURIComponent(this.consumer_secret) + '&' + ( this.token_secret ? encodeURIComponent(token_secret) : '');
-
-    //console.log('signing_key:');
-    //console.log(this.signing_key);
-    //console.log(' ');
-
-    // Generating the signature:
-	this.signature = CryptoJS.enc.Base64.stringify(CryptoJS.HmacSHA1(this.signature_base_string, this.signing_key));
-
-    //console.log('signature:');
-    //console.log(this.signature);
-    //console.log(' ');
-
-    //this.path = this.getPath(this.fn) + this.getParams(this.toUrl(this.api_params));
-
-	//this.oauth_params.signature = this.signature;
-
-	this.oauth_params = this.sort(this.oauth_params);
-
-	//this.header = 'OAuth ' + this.toHeader(this.oauth_params);
+    console.log(oa);
 }
 
 module.exports = TwitterApiCall;

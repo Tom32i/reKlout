@@ -29,39 +29,33 @@ function Twitter (consumer_key, consumer_secret, callback_url, token, token_secr
 	this.call = function (fn, api_params)
     {
         //var api_call = new TwitterApiCall('users/lookup', {screen_name: 'Tom32i'}, this.token_secret);
-        var api_call = new TwitterApiCall('oauth/request_token', {oauth_callback: this.callback_url}, this.token);
+        //var api_call = new TwitterApiCall('oauth/request_token', {oauth_callback: this.callback_url}, this.token);
 
-        var api_header = {
-            oauth_callback: this.callback_url,
-            oauth_consumer_key: this.consumer_key,
-            oauth_nonce: api_call.oauth_params.oauth_nonce,
-            oauth_signature: api_call.signature,
-            oauth_signature_method: "HMAC-SHA1",
-            oauth_timestamp: api_call.oauth_params.oauth_timestamp,
-            oauth_token: this.token,
-            oauth_version: this.oauth_version
-        };
-
-        api_header = this.sort(api_header);
-
-        var header_string = 'OAuth ' + api_call.toHeader(api_header);
-
-        var authorize = this.post(
-            {
-                hostname:   this.api_url,
-                path:       '/oauth/request_token',
-                headers: {
-                    'Accept': '* /*',
-                    'Authorization': header_string,
-                    'Connection': 'Close',
-                    'User-Agent': 'OAuth gem v0.4.4',
-                    'Host': this.api_url
-                }
-            },
-            {
-                //oauth_callback: this.callback_url
-            }
+        var oa = new OAuth(
+            "https://api.twitter.com/oauth/request_token",
+            "https://api.twitter.com/oauth/access_token",
+            this.consumer_key,
+            this.consumer_secret,
+            this.oauth_version,
+            this.callback_url,
+            "HMAC-SHA1"
         );
+
+        oa.getOAuthRequestToken(function(error, oauth_token, oauth_token_secret, results){
+          if(error) {
+                console.log('error');
+                console.log(error);
+            }
+          else { 
+                // store the tokens in the session
+                req.session.oa = oa;
+                req.session.oauth_token = oauth_token;
+                req.session.oauth_token_secret = oauth_token_secret;
+
+                // redirect the user to authorize the token
+            res.redirect("https://www.google.com/accounts/OAuthAuthorizeToken?oauth_token="+oauth_token);
+          }
+        })
 
         /*
             POST: 
