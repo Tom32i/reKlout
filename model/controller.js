@@ -20,7 +20,7 @@ function Controller ()
 				}
 				else
 				{		        	
-					res.redirect('/login');
+					res.redirect(config.base_url + '/login');
 				}
 			});
 		}
