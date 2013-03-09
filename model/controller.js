@@ -1,4 +1,4 @@
-var User = require('./User'),
+var User = require('./user'),
     OAuth = require('oauth').OAuth;
 
 function Controller ()
